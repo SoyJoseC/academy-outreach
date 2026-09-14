@@ -20,6 +20,8 @@ ALLOWED_HOSTS = [
     if host.strip()
 ]
 DEFAULT_PHONE_REGION = os.getenv("DEFAULT_PHONE_REGION", "VC").strip().upper()
+MESSAGE_SENDER_BACKEND = os.getenv("MESSAGE_SENDER_BACKEND", "messaging.sender.FakeSender")
+MESSAGE_WORKER_POLL_SECONDS = float(os.getenv("MESSAGE_WORKER_POLL_SECONDS", "5"))
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -86,3 +88,16 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "loggers": {
+        "messaging": {
+            "handlers": ["console"],
+            "level": os.getenv("MESSAGE_LOG_LEVEL", "INFO"),
+            "propagate": False,
+        }
+    },
+}
