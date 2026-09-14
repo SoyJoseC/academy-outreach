@@ -6,6 +6,7 @@ class AuditEvent(models.Model):
     class EventType(models.TextChoices):
         CSV_IMPORTED = "CSV_IMPORTED", "CSV imported"
         CANDIDATE_CREATED = "CANDIDATE_CREATED", "Candidate created"
+        CANDIDATE_UPDATED = "CANDIDATE_UPDATED", "Candidate updated"
         DUPLICATE_DETECTED = "DUPLICATE_DETECTED", "Duplicate detected"
         CAMPAIGN_MEMBER_CREATED = "CAMPAIGN_MEMBER_CREATED", "Campaign member created"
         MESSAGE_GENERATED = "MESSAGE_GENERATED", "Message generated"
@@ -39,4 +40,3 @@ class AuditEvent(models.Model):
 
     def __str__(self) -> str:
         return f"{self.event_type} at {self.created_at:%Y-%m-%d %H:%M:%S}"
-

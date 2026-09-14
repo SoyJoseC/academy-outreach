@@ -1,4 +1,7 @@
 from django.db import models
+from django.db.models import Q
+
+from .normalization import normalize_email, normalize_phone
 
 
 class Candidate(models.Model):
@@ -28,12 +31,27 @@ class Candidate(models.Model):
 
     class Meta:
         ordering = ("last_name", "first_name", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("phone",),
+                condition=~Q(phone=""),
+                name="unique_nonblank_candidate_phone",
+            ),
+            models.UniqueConstraint(
+                fields=("email",),
+                condition=~Q(email=""),
+                name="unique_nonblank_candidate_email",
+            ),
+        ]
 
     def save(self, *args, **kwargs):
+        self.phone = normalize_phone(self.phone)
+        self.email = normalize_email(self.email)
         if self.do_not_contact:
             self.status = self.Status.DO_NOT_CONTACT
+            if update_fields := kwargs.get("update_fields"):
+                kwargs["update_fields"] = set(update_fields) | {"status"}
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"{self.first_name} {self.last_name}".strip()
-

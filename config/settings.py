@@ -19,6 +19,7 @@ ALLOWED_HOSTS = [
     for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
     if host.strip()
 ]
+DEFAULT_PHONE_REGION = os.getenv("DEFAULT_PHONE_REGION", "VC").strip().upper()
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -31,6 +32,7 @@ INSTALLED_APPS = [
     "campaigns",
     "messaging",
     "audit",
+    "integrations",
 ]
 
 MIDDLEWARE = [
