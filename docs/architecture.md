@@ -1,4 +1,4 @@
-# Milestone 1 architecture
+# Milestones 1–2 architecture
 
 ## Responsibility boundaries
 
@@ -23,10 +23,14 @@ candidate can participate independently in multiple campaigns.
 - Important uniqueness and ordering rules are enforced by database constraints,
   not only Admin forms.
 - Audit events are read-only in Django Admin.
+- Candidate phone numbers are stored in E.164 form and nonblank phones/emails
+  are unique at the database layer.
+- Each CSV row is processed in its own transaction so one invalid row does not
+  discard other valid candidates.
+- Importing creates campaign memberships but never creates or sends messages.
 
 ## Deferred intentionally
 
-CSV processing, phone normalization, queue locking, rate limiting, FakeSender,
-OpenClaw, inbound webhooks, WhatsApp, and ActiveCampaign belong to later
-milestones. No production messaging path exists in Milestone 1.
-
+Queue locking, rate limiting, FakeSender, OpenClaw, inbound webhooks, WhatsApp,
+and ActiveCampaign belong to later milestones. No production messaging path
+exists yet.
