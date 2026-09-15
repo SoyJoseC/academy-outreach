@@ -96,7 +96,7 @@ class OpenClawClientTests(TestCase):
         with self.assertRaises(OpenClawError):
             client.check_health()
 
-    def test_client_uses_official_responses_endpoint_and_required_tool_call(self):
+    def test_client_uses_official_responses_endpoint_and_strict_json_contract(self):
         observed = {}
 
         def handler(request):
@@ -110,16 +110,20 @@ class OpenClawClientTests(TestCase):
                     "status": "completed",
                     "output": [
                         {
-                            "type": "function_call",
-                            "name": "admissions_decision",
-                            "arguments": json.dumps(
+                            "type": "message",
+                            "content": [
                                 {
-                                    "action": "send",
-                                    "message": "Hi Carlos",
-                                    "requires_human": False,
-                                    "reason": None,
+                                    "type": "output_text",
+                                    "text": json.dumps(
+                                        {
+                                            "action": "send",
+                                            "message": "Hi Carlos",
+                                            "requires_human": False,
+                                            "reason": None,
+                                        }
+                                    ),
                                 }
-                            ),
+                            ],
                         }
                     ],
                 },
@@ -137,7 +141,9 @@ class OpenClawClientTests(TestCase):
         self.assertEqual(observed["url"], "https://gateway.test:18789/v1/responses")
         self.assertEqual(observed["authorization"], "Bearer test-token")
         self.assertEqual(observed["agent"], "academy-admissions")
-        self.assertEqual(observed["payload"]["tool_choice"]["name"], "admissions_decision")
+        self.assertNotIn("tools", observed["payload"])
+        self.assertNotIn("tool_choice", observed["payload"])
+        self.assertIn("Return only one raw JSON object", observed["payload"]["instructions"])
         structured_input = json.loads(observed["payload"]["input"])
         self.assertEqual(structured_input["candidate"]["first_name"], "Carlos")
 
@@ -209,10 +215,37 @@ class OpenClawClientTests(TestCase):
                 idempotency_key="initial-outreach:42",
             )
 
-    def test_missing_structured_tool_call_is_rejected(self):
-        with self.assertRaises(OpenClawError):
+    def test_non_json_message_is_rejected(self):
+        with self.assertRaises(AgentResponseValidationError):
             OpenClawClient._parse_response(
-                {"status": "completed", "output": [{"type": "message", "content": "send it"}]}
+                {
+                    "status": "completed",
+                    "output": [
+                        {
+                            "type": "message",
+                            "content": [{"type": "output_text", "text": "send it"}],
+                        }
+                    ],
+                }
+            )
+
+    def test_markdown_wrapped_json_is_rejected(self):
+        with self.assertRaises(AgentResponseValidationError):
+            OpenClawClient._parse_response(
+                {
+                    "status": "completed",
+                    "output": [
+                        {
+                            "type": "message",
+                            "content": [
+                                {
+                                    "type": "output_text",
+                                    "text": '```json\n{"action":"skip"}\n```',
+                                }
+                            ],
+                        }
+                    ],
+                }
             )
 
     def test_malformed_tool_arguments_are_rejected(self):
