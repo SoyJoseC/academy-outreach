@@ -1,4 +1,4 @@
-# Milestones 1–4 architecture
+# Milestones 1–5 architecture
 
 ## Responsibility boundaries
 
@@ -48,8 +48,17 @@ candidate can participate independently in multiple campaigns.
   event.
 - The configured agent recommends content only. It never receives authority to
   change or bypass deterministic Django policy.
+- OpenClaw endpoints require a bearer token. Plain HTTP is rejected for public
+  hosts and allowed only for loopback/private network addresses.
+- Real outbound sends use OpenClaw's documented `/tools/invoke` message tool,
+  pass the Django idempotency key, and count as sent only when a provider
+  message ID is returned.
+- CSV files can be imported from a campaign's Admin page. Importing remains
+  separate from campaign activation and never sends synchronously in the web
+  request.
 
 ## Deferred intentionally
 
-Inbound webhooks, WhatsApp transport, and ActiveCampaign belong to later
-milestones. No production messaging path exists yet.
+Inbound reply ingestion and ActiveCampaign belong to later milestones. The
+outbound WhatsApp adapter exists but is disabled by default and requires an
+explicitly linked OpenClaw account before activation.
