@@ -1,5 +1,7 @@
 # Academy Outreach
 
+> Prefer the simpler one-file prototype? See [`standalone/README.md`](standalone/README.md). It runs independently of Django and defaults to a no-send dry run.
+
 Auditable admissions and candidate-outreach automation. Django owns all
 business state and deterministic policy. OpenClaw and real WhatsApp messaging
 will only be added after the safety-focused local workflow is stable.

@@ -10,3 +10,9 @@ htmlcov/
 .idea/
 .vscode/
 
+
+# Standalone outreach runtime data
+standalone/prospects.csv
+standalone/do_not_contact.csv
+standalone/outreach_log.csv
+standalone/review_queue.csv
