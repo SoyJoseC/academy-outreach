@@ -9,6 +9,7 @@ class AuditEvent(models.Model):
         CANDIDATE_UPDATED = "CANDIDATE_UPDATED", "Candidate updated"
         DUPLICATE_DETECTED = "DUPLICATE_DETECTED", "Duplicate detected"
         CAMPAIGN_MEMBER_CREATED = "CAMPAIGN_MEMBER_CREATED", "Campaign member created"
+        MESSAGE_QUEUED = "MESSAGE_QUEUED", "Message queued"
         MESSAGE_GENERATED = "MESSAGE_GENERATED", "Message generated"
         MESSAGE_APPROVED = "MESSAGE_APPROVED", "Message approved"
         MESSAGE_BLOCKED = "MESSAGE_BLOCKED", "Message blocked"

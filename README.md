@@ -4,7 +4,7 @@ Auditable admissions and candidate-outreach automation. Django owns all
 business state and deterministic policy. OpenClaw and real WhatsApp messaging
 will only be added after the safety-focused local workflow is stable.
 
-## Current scope: Milestones 1–3
+## Current scope: Milestones 1–4
 
 - Candidate, Campaign, CampaignMember, Message, SystemState, and AuditEvent
 - Django Admin as the initial operational interface
@@ -18,9 +18,13 @@ will only be added after the safety-focused local workflow is stable.
   and daily policy checks
 - a worker command using `FakeSender` by default
 - deterministic opt-out detection and audit history
+- validated `send`, `human_review`, and `skip` admissions-agent decisions
+- an OpenClaw `/v1/responses` client using a required structured tool call
+- campaign-specific human escalation visible in Django Admin
+- an OpenClaw admissions Skill and placeholder-only academy knowledge base
 
-OpenClaw, real WhatsApp, inbound webhooks, and ActiveCampaign are intentionally
-outside the current scope.
+Real WhatsApp, inbound webhooks, and ActiveCampaign are intentionally outside
+the current scope.
 
 ## Local setup
 
@@ -80,6 +84,31 @@ all deterministic policies, and uses `FakeSender`. Its provider IDs start with
 `SystemState.outbound_enabled` to false in Django Admin to stop outbound
 processing immediately.
 
+## Configure OpenClaw message generation
+
+The safe default is `TemplateAdmissionsAgent`, so a fresh installation remains
+fully local. To use a separately configured OpenClaw Gateway, enable its
+OpenResponses endpoint and set:
+
+```env
+ADMISSIONS_AGENT_BACKEND=agents.services.OpenClawAdmissionsAgent
+OPENCLAW_ENDPOINT=http://127.0.0.1:18789
+OPENCLAW_AUTH_TOKEN=replace-with-gateway-token
+OPENCLAW_AGENT_ID=academy-admissions
+OPENCLAW_MODEL=openclaw/academy-admissions
+```
+
+The client calls `POST /v1/responses` and requires exactly one validated
+`admissions_decision` function call. Malformed, incomplete, or failed responses
+mark the message as failed and never reach the sender. Keep the Gateway on
+loopback, a tailnet, or another private ingress: its HTTP bearer credential has
+operator-level authority.
+
+The Skill is at
+`openclaw/workspace/skills/academy-admissions/SKILL.md`. The files under
+`knowledge/` intentionally contain no academy facts yet. Replace their TODO
+sections only with information approved by the academy.
+
 ## Verification
 
 ```bash
@@ -93,6 +122,6 @@ python manage.py test
 1. Business core (complete)
 2. CSV import and candidate normalization (complete)
 3. Database queue, deterministic safety policies, and FakeSender (complete)
-4. OpenClaw structured message generation (next)
-5. Real WhatsApp integration
+4. OpenClaw structured message generation and human escalation (complete)
+5. Real WhatsApp and authenticated inbound integration (next)
 6. ActiveCampaign integration
