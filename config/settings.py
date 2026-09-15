@@ -29,6 +29,7 @@ OPENCLAW_ENDPOINT = os.getenv("OPENCLAW_ENDPOINT", "").strip()
 OPENCLAW_AUTH_TOKEN = os.getenv("OPENCLAW_AUTH_TOKEN", "").strip()
 OPENCLAW_AGENT_ID = os.getenv("OPENCLAW_AGENT_ID", "academy-admissions").strip()
 OPENCLAW_MODEL = os.getenv("OPENCLAW_MODEL", "openclaw/academy-admissions").strip()
+OPENCLAW_WHATSAPP_ACCOUNT_ID = os.getenv("OPENCLAW_WHATSAPP_ACCOUNT_ID", "default").strip()
 OPENCLAW_TIMEOUT_SECONDS = float(os.getenv("OPENCLAW_TIMEOUT_SECONDS", "30"))
 
 INSTALLED_APPS = [

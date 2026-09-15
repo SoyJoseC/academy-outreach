@@ -1,6 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from audit.models import AuditEvent
@@ -10,7 +10,7 @@ from .models import Message, SystemState
 from .opt_out import apply_opt_out, detects_opt_out
 from .policies import PolicyReason, evaluate_outbound
 from .queue import enqueue_initial_message
-from .sender import BaseSender, FakeSender, SendResult
+from .sender import BaseSender, FakeSender, OpenClawWhatsAppSender, SendResult
 from .system_state import set_outbound_enabled
 from .worker import process_next
 
@@ -223,6 +223,23 @@ class QueueAndSenderTests(MessagingSafetyTestCase):
         result = FakeSender().send(self.make_ready_message())
         self.assertTrue(result.success)
         self.assertTrue(result.provider_message_id.startswith("fake-"))
+
+    @override_settings(OPENCLAW_WHATSAPP_ACCOUNT_ID="academy")
+    def test_openclaw_sender_returns_confirmed_whatsapp_id(self):
+        from unittest.mock import patch
+
+        message = self.make_ready_message(idempotency_key="initial-outreach:1")
+        with patch("messaging.sender.OpenClawClient.send_whatsapp", return_value="wa-123") as send:
+            result = OpenClawWhatsAppSender().send(message)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.provider_message_id, "wa-123")
+        send.assert_called_once_with(
+            target="+17845551234",
+            message="Hi Carlos",
+            idempotency_key="initial-outreach:1",
+            account_id="academy",
+        )
 
 
 class FailingSender(BaseSender):

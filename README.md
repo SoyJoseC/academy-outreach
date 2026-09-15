@@ -4,7 +4,7 @@ Auditable admissions and candidate-outreach automation. Django owns all
 business state and deterministic policy. OpenClaw and real WhatsApp messaging
 will only be added after the safety-focused local workflow is stable.
 
-## Current scope: Milestones 1–4
+## Current scope: Milestones 1–5
 
 - Candidate, Campaign, CampaignMember, Message, SystemState, and AuditEvent
 - Django Admin as the initial operational interface
@@ -22,9 +22,13 @@ will only be added after the safety-focused local workflow is stable.
 - an OpenClaw `/v1/responses` client using a required structured tool call
 - campaign-specific human escalation visible in Django Admin
 - an OpenClaw admissions Skill and placeholder-only academy knowledge base
+- browser-based CSV import from each campaign in Django Admin
+- explicit campaign activate/pause actions in Django Admin
+- OpenClaw Gateway liveness and structured-contract checks
+- an opt-in OpenClaw WhatsApp sender with delivery-ID confirmation
 
-Real WhatsApp, inbound webhooks, and ActiveCampaign are intentionally outside
-the current scope.
+Real WhatsApp remains disabled by default. Inbound reply ingestion and
+ActiveCampaign are intentionally outside the current scope.
 
 ## Local setup
 
@@ -46,7 +50,8 @@ safety decisions introduced in this milestone.
 
 ## Import candidates
 
-Create the campaign in Django Admin, then prepare a UTF-8 CSV containing:
+Create the campaign in Django Admin and use **Import candidates from CSV** on
+the campaign page. Prepare a UTF-8 CSV containing:
 
 ```csv
 first_name,last_name,phone,email,country,course_interest
@@ -57,6 +62,8 @@ Run:
 ```bash
 python manage.py import_candidates candidates.csv --campaign 1
 ```
+
+The management command is an alternative for server-side or scripted imports.
 
 Local phone numbers use `DEFAULT_PHONE_REGION` from `.env` (`VC` by default).
 Prefer international numbers beginning with `+`. The command reports imported,
@@ -109,6 +116,35 @@ The Skill is at
 `knowledge/` intentionally contain no academy facts yet. Replace their TODO
 sections only with information approved by the academy.
 
+Check Gateway liveness without making a model call:
+
+```bash
+python manage.py check_openclaw --health-only
+```
+
+Then validate one synthetic structured response. This does not create database
+records or send a WhatsApp message:
+
+```bash
+python manage.py check_openclaw
+```
+
+## Enable real initial WhatsApp outreach
+
+Only after linking and testing the WhatsApp account in OpenClaw, change:
+
+```env
+MESSAGE_SENDER_BACKEND=messaging.sender.OpenClawWhatsAppSender
+OPENCLAW_WHATSAPP_ACCOUNT_ID=default
+```
+
+Keep `SystemState.outbound_enabled` off while changing configuration. Restart
+the Django worker, run the OpenClaw checks, then enable outbound in Django
+Admin. The worker will contact only eligible members of active campaigns and
+will store OpenClaw's confirmed WhatsApp message ID. See
+[`docs/openclaw-whatsapp-runbook.md`](docs/openclaw-whatsapp-runbook.md) for the
+full activation checklist.
+
 ## Verification
 
 ```bash
@@ -123,5 +159,7 @@ python manage.py test
 2. CSV import and candidate normalization (complete)
 3. Database queue, deterministic safety policies, and FakeSender (complete)
 4. OpenClaw structured message generation and human escalation (complete)
-5. Real WhatsApp and authenticated inbound integration (next)
-6. ActiveCampaign integration
+5. Operator-ready CSV workflow and real outbound WhatsApp adapter (complete;
+   activation requires a linked account)
+6. Authenticated inbound replies and automatic opt-out processing (next)
+7. ActiveCampaign integration

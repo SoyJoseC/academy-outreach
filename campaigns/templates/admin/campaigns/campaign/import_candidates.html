@@ -1,0 +1,35 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Home</a>
+  &rsaquo; <a href="{% url 'admin:campaigns_campaign_changelist' %}">Campaigns</a>
+  &rsaquo; <a href="{% url 'admin:campaigns_campaign_change' campaign.pk %}">{{ campaign }}</a>
+  &rsaquo; Import candidates
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <p>This import adds eligible candidates to the campaign. It does not send messages by itself.</p>
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    {{ form.as_p }}
+    <div class="submit-row">
+      <input type="submit" value="Import candidates" class="default">
+    </div>
+  </form>
+
+  {% if report and report.errors %}
+    <h2>Rows needing attention</h2>
+    <table>
+      <thead><tr><th>CSV row</th><th>Reason</th></tr></thead>
+      <tbody>
+      {% for error in report.errors %}
+        <tr><td>{{ error.row }}</td><td>{{ error.reason }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+</div>
+{% endblock %}

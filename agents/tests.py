@@ -10,7 +10,7 @@ from messaging.models import Message
 from messaging.sender import BaseSender
 from messaging.worker import process_next
 
-from .openclaw import OpenClawClient, OpenClawError
+from .openclaw import OpenClawClient, OpenClawConfigurationError, OpenClawError
 from .schemas import (
     AdmissionsRequest,
     AgentAction,
@@ -69,6 +69,33 @@ class AgentSchemaTests(TestCase):
 
 
 class OpenClawClientTests(TestCase):
+    def test_health_check_uses_dedicated_gateway_endpoint(self):
+        observed = {}
+
+        def handler(request):
+            observed["method"] = request.method
+            observed["url"] = str(request.url)
+            return httpx.Response(200, json={"ok": True, "status": "live"})
+
+        client = OpenClawClient(
+            endpoint="https://gateway.test:18789/v1/responses",
+            token="test-token",
+            transport=httpx.MockTransport(handler),
+        )
+        client.check_health()
+        self.assertEqual(observed, {"method": "GET", "url": "https://gateway.test:18789/health"})
+
+    def test_unhealthy_gateway_response_is_rejected(self):
+        client = OpenClawClient(
+            endpoint="https://gateway.test:18789",
+            token="test-token",
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(503, json={"ok": False, "status": "starting"})
+            ),
+        )
+        with self.assertRaises(OpenClawError):
+            client.check_health()
+
     def test_client_uses_official_responses_endpoint_and_required_tool_call(self):
         observed = {}
 
@@ -99,7 +126,7 @@ class OpenClawClientTests(TestCase):
             )
 
         client = OpenClawClient(
-            endpoint="http://gateway.test:18789",
+            endpoint="https://gateway.test:18789",
             token="test-token",
             agent_id="academy-admissions",
             model="openclaw/academy-admissions",
@@ -107,12 +134,80 @@ class OpenClawClientTests(TestCase):
         )
         decision = client.recommend(sample_request())
         self.assertEqual(decision.action, AgentAction.SEND)
-        self.assertEqual(observed["url"], "http://gateway.test:18789/v1/responses")
+        self.assertEqual(observed["url"], "https://gateway.test:18789/v1/responses")
         self.assertEqual(observed["authorization"], "Bearer test-token")
         self.assertEqual(observed["agent"], "academy-admissions")
         self.assertEqual(observed["payload"]["tool_choice"]["name"], "admissions_decision")
         structured_input = json.loads(observed["payload"]["input"])
         self.assertEqual(structured_input["candidate"]["first_name"], "Carlos")
+
+    def test_missing_token_is_rejected(self):
+        client = OpenClawClient(endpoint="https://gateway.test", token="")
+        with self.assertRaises(OpenClawConfigurationError):
+            client.validate_configuration()
+
+    def test_public_http_endpoint_is_rejected(self):
+        client = OpenClawClient(endpoint="http://gateway.example.com", token="test-token")
+        with self.assertRaises(OpenClawConfigurationError):
+            client.validate_configuration()
+
+    def test_private_http_endpoint_is_allowed(self):
+        client = OpenClawClient(endpoint="http://127.0.0.1:18789", token="test-token")
+        client.validate_configuration()
+
+    def test_whatsapp_send_uses_message_tool_and_idempotency(self):
+        observed = {}
+
+        def handler(request):
+            observed["url"] = str(request.url)
+            observed["headers"] = request.headers
+            observed["payload"] = json.loads(request.content)
+            return httpx.Response(
+                200,
+                json={
+                    "ok": True,
+                    "result": {
+                        "content": [{"type": "text", "text": "sent"}],
+                        "details": {"messageId": "wa-message-123"},
+                    },
+                },
+            )
+
+        client = OpenClawClient(
+            endpoint="https://gateway.test",
+            token="test-token",
+            agent_id="academy-admissions",
+            transport=httpx.MockTransport(handler),
+        )
+        provider_id = client.send_whatsapp(
+            target="+17845551234",
+            message="Hi Carlos",
+            idempotency_key="initial-outreach:42",
+            account_id="academy",
+        )
+
+        self.assertEqual(provider_id, "wa-message-123")
+        self.assertEqual(observed["url"], "https://gateway.test/tools/invoke")
+        self.assertEqual(observed["headers"]["authorization"], "Bearer test-token")
+        self.assertEqual(observed["headers"]["x-openclaw-message-channel"], "whatsapp")
+        self.assertEqual(observed["payload"]["tool"], "message")
+        self.assertEqual(observed["payload"]["args"]["target"], "+17845551234")
+        self.assertEqual(observed["payload"]["args"]["idempotencyKey"], "initial-outreach:42")
+
+    def test_whatsapp_send_without_provider_id_fails_closed(self):
+        client = OpenClawClient(
+            endpoint="https://gateway.test",
+            token="test-token",
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(200, json={"ok": True, "result": {"details": {}}})
+            ),
+        )
+        with self.assertRaises(OpenClawError):
+            client.send_whatsapp(
+                target="+17845551234",
+                message="Hi",
+                idempotency_key="initial-outreach:42",
+            )
 
     def test_missing_structured_tool_call_is_rejected(self):
         with self.assertRaises(OpenClawError):

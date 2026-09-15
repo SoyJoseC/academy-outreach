@@ -6,6 +6,8 @@ from uuid import uuid4
 from django.conf import settings
 from django.utils.module_loading import import_string
 
+from agents.openclaw import OpenClawClient
+
 from .models import Message
 
 logger = logging.getLogger(__name__)
@@ -41,7 +43,13 @@ class FakeSender(BaseSender):
 
 class OpenClawWhatsAppSender(BaseSender):
     def send(self, message: Message) -> SendResult:
-        raise RuntimeError("Real WhatsApp sending is disabled until a later milestone.")
+        provider_id = OpenClawClient().send_whatsapp(
+            target=message.candidate.phone,
+            message=message.content,
+            idempotency_key=message.idempotency_key,
+            account_id=settings.OPENCLAW_WHATSAPP_ACCOUNT_ID,
+        )
+        return SendResult(success=True, provider_message_id=provider_id)
 
 
 def get_sender() -> BaseSender:
