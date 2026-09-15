@@ -12,14 +12,6 @@ from .models import Message
 logger = logging.getLogger(__name__)
 
 
-def build_test_message(member: CampaignMember) -> str:
-    candidate = member.candidate
-    greeting = f"Hi {candidate.first_name}" if candidate.first_name else "Hello"
-    if candidate.course_interest:
-        return f"{greeting}, are you still interested in {candidate.course_interest}?"
-    return f"{greeting}, are you still interested in learning more about the academy?"
-
-
 @transaction.atomic
 def enqueue_initial_message(member: CampaignMember) -> tuple[Message, bool]:
     """Create exactly one initial message per campaign membership."""
@@ -36,9 +28,8 @@ def enqueue_initial_message(member: CampaignMember) -> tuple[Message, bool]:
                     "campaign": member.campaign,
                     "campaign_member": member,
                     "direction": Message.Direction.OUTBOUND,
-                    "status": Message.Status.READY,
-                    "content": build_test_message(member),
-                    "generated_at": timezone.now(),
+                    "status": Message.Status.PENDING,
+                    "content": "",
                     "scheduled_at": timezone.now(),
                 },
             )
@@ -48,14 +39,14 @@ def enqueue_initial_message(member: CampaignMember) -> tuple[Message, bool]:
 
     if created:
         AuditEvent.objects.create(
-            event_type=AuditEvent.EventType.MESSAGE_GENERATED,
-            description="Deterministic test message queued.",
+            event_type=AuditEvent.EventType.MESSAGE_QUEUED,
+            description="Initial message queued for generation.",
             entity_type="Message",
             entity_id=str(message.pk),
             metadata={"campaign_member_id": member.pk},
         )
         logger.info(
-            "message generated message_id=%s candidate_id=%s campaign_id=%s",
+            "message queued message_id=%s candidate_id=%s campaign_id=%s",
             message.pk,
             member.candidate_id,
             member.campaign_id,

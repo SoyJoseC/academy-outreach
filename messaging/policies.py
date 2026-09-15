@@ -31,7 +31,12 @@ class PolicyDecision:
 SENT_STATUSES = (Message.Status.SENT, Message.Status.DELIVERED)
 
 
-def evaluate_outbound(message: Message, *, now: datetime | None = None) -> PolicyDecision:
+def evaluate_outbound(
+    message: Message,
+    *,
+    now: datetime | None = None,
+    require_content: bool = True,
+) -> PolicyDecision:
     """Apply deterministic rules. AI output is never consulted here."""
     now = now or timezone.now()
     state = SystemState.load()
@@ -53,7 +58,7 @@ def evaluate_outbound(message: Message, *, now: datetime | None = None) -> Polic
         message.direction != Message.Direction.OUTBOUND
         or not candidate.phone
         or candidate.status == Candidate.Status.INVALID
-        or not message.content.strip()
+        or (require_content and not message.content.strip())
     ):
         return PolicyDecision(False, PolicyReason.INVALID_CANDIDATE)
 

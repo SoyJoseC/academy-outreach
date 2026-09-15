@@ -1,10 +1,11 @@
-# Milestones 1–3 architecture
+# Milestones 1–4 architecture
 
 ## Responsibility boundaries
 
 - `candidates` owns person-level admissions and contact eligibility data.
 - `campaigns` owns campaigns and candidate participation within each campaign.
 - `messaging` owns auditable message state and the global automation switch.
+- `agents` owns AI request/response validation and the OpenClaw boundary.
 - `audit` owns immutable operational event records.
 
 Campaign-specific fields live on `CampaignMember`, not `Candidate`, so one
@@ -37,8 +38,18 @@ candidate can participate independently in multiple campaigns.
 - Sender confirmation updates message, member, candidate, and audit history in
   a transaction.
 - Opt-out recognition is deterministic and globally updates the candidate.
+- Pending messages pass a deterministic policy check before candidate data is
+  sent to any agent and another final check before `FakeSender` is called.
+- OpenClaw receives a structured admissions payload through its documented
+  `/v1/responses` endpoint. A required function call limits output to `send`,
+  `human_review`, or `skip`, and Django validates the response again.
+- Human review sets both the message state and the campaign-specific member
+  lock. Malformed agent output fails closed and creates an agent-error audit
+  event.
+- The configured agent recommends content only. It never receives authority to
+  change or bypass deterministic Django policy.
 
 ## Deferred intentionally
 
-OpenClaw, inbound webhooks, WhatsApp, and ActiveCampaign belong to later
+Inbound webhooks, WhatsApp transport, and ActiveCampaign belong to later
 milestones. No production messaging path exists yet.

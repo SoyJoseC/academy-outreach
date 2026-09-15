@@ -6,6 +6,7 @@ from django.db import transaction
 from django.db.models import F, Q
 from django.utils import timezone
 
+from agents.services import BaseAdmissionsAgent, GenerationOutcome, generate_pending_message
 from audit.models import AuditEvent
 from campaigns.models import CampaignMember
 from candidates.models import Candidate
@@ -67,14 +68,20 @@ def _next_due_message() -> Message | None:
     now = timezone.now()
     return (
         Message.objects.select_related("candidate", "campaign", "campaign_member")
-        .filter(direction=Message.Direction.OUTBOUND, status=Message.Status.READY)
+        .filter(
+            direction=Message.Direction.OUTBOUND,
+            status__in=(Message.Status.PENDING, Message.Status.READY),
+        )
         .filter(Q(scheduled_at__isnull=True) | Q(scheduled_at__lte=now))
         .order_by("scheduled_at", "created_at", "pk")
         .first()
     )
 
 
-def process_next(sender: BaseSender | None = None) -> WorkerResult:
+def process_next(
+    sender: BaseSender | None = None,
+    agent: BaseAdmissionsAgent | None = None,
+) -> WorkerResult:
     if not SystemState.load().outbound_enabled:
         return WorkerResult("blocked", reason=str(PolicyReason.SYSTEM_PAUSED))
 
@@ -83,6 +90,23 @@ def process_next(sender: BaseSender | None = None) -> WorkerResult:
         message = enqueue_next_eligible()
     if message is None:
         return WorkerResult("idle")
+
+    if message.status == Message.Status.PENDING:
+        pre_generation_decision = evaluate_outbound(message, require_content=False)
+        logger.info(
+            "pre-generation policy check message_id=%s allowed=%s reason=%s",
+            message.pk,
+            pre_generation_decision.allowed,
+            pre_generation_decision.reason or "PASS",
+        )
+        if not pre_generation_decision.allowed:
+            return _record_block(message, pre_generation_decision)
+        generation = generate_pending_message(message, agent=agent)
+        if generation.outcome != GenerationOutcome.READY:
+            return WorkerResult(generation.outcome, message.pk, generation.reason)
+        message = Message.objects.select_related("candidate", "campaign", "campaign_member").get(
+            pk=message.pk
+        )
 
     decision = evaluate_outbound(message)
     logger.info(

@@ -22,6 +22,14 @@ ALLOWED_HOSTS = [
 DEFAULT_PHONE_REGION = os.getenv("DEFAULT_PHONE_REGION", "VC").strip().upper()
 MESSAGE_SENDER_BACKEND = os.getenv("MESSAGE_SENDER_BACKEND", "messaging.sender.FakeSender")
 MESSAGE_WORKER_POLL_SECONDS = float(os.getenv("MESSAGE_WORKER_POLL_SECONDS", "5"))
+ADMISSIONS_AGENT_BACKEND = os.getenv(
+    "ADMISSIONS_AGENT_BACKEND", "agents.services.TemplateAdmissionsAgent"
+)
+OPENCLAW_ENDPOINT = os.getenv("OPENCLAW_ENDPOINT", "").strip()
+OPENCLAW_AUTH_TOKEN = os.getenv("OPENCLAW_AUTH_TOKEN", "").strip()
+OPENCLAW_AGENT_ID = os.getenv("OPENCLAW_AGENT_ID", "academy-admissions").strip()
+OPENCLAW_MODEL = os.getenv("OPENCLAW_MODEL", "openclaw/academy-admissions").strip()
+OPENCLAW_TIMEOUT_SECONDS = float(os.getenv("OPENCLAW_TIMEOUT_SECONDS", "30"))
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -33,6 +41,7 @@ INSTALLED_APPS = [
     "candidates",
     "campaigns",
     "messaging",
+    "agents",
     "audit",
     "integrations",
 ]
@@ -94,6 +103,11 @@ LOGGING = {
     "disable_existing_loggers": False,
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     "loggers": {
+        "agents": {
+            "handlers": ["console"],
+            "level": os.getenv("MESSAGE_LOG_LEVEL", "INFO"),
+            "propagate": False,
+        },
         "messaging": {
             "handlers": ["console"],
             "level": os.getenv("MESSAGE_LOG_LEVEL", "INFO"),
