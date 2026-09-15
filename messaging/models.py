@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 
 from campaigns.models import Campaign, CampaignMember
@@ -47,6 +48,7 @@ class Message(models.Model):
     delivered_at = models.DateTimeField(null=True, blank=True)
     failed_at = models.DateTimeField(null=True, blank=True)
     provider_message_id = models.CharField(max_length=255, blank=True, db_index=True)
+    idempotency_key = models.CharField(max_length=255, blank=True, db_index=True)
     retry_count = models.PositiveIntegerField(default=0)
     failure_reason = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -55,6 +57,13 @@ class Message(models.Model):
     class Meta:
         ordering = ("-created_at",)
         indexes = [models.Index(fields=("direction", "status", "scheduled_at"), name="message_queue_lookup")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("idempotency_key",),
+                condition=~Q(idempotency_key=""),
+                name="unique_nonblank_message_idempotency_key",
+            )
+        ]
 
     def clean(self):
         errors = {}
@@ -115,4 +124,3 @@ class SystemState(models.Model):
 
     def __str__(self) -> str:
         return "Outbound enabled" if self.outbound_enabled else "Outbound paused"
-

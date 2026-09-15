@@ -1,4 +1,4 @@
-# Milestones 1–2 architecture
+# Milestones 1–3 architecture
 
 ## Responsibility boundaries
 
@@ -28,9 +28,17 @@ candidate can participate independently in multiple campaigns.
 - Each CSV row is processed in its own transaction so one invalid row does not
   discard other valid candidates.
 - Importing creates campaign memberships but never creates or sends messages.
+- Initial outbound messages use a database-unique idempotency key.
+- Django checks global pause, campaign state and dates, do-not-contact,
+  human-review locks, candidate validity, minimum interval, and hourly/daily
+  limits before claiming a message and immediately before sending it.
+- `FakeSender` is the only enabled sender; real WhatsApp deliberately raises an
+  error if invoked.
+- Sender confirmation updates message, member, candidate, and audit history in
+  a transaction.
+- Opt-out recognition is deterministic and globally updates the candidate.
 
 ## Deferred intentionally
 
-Queue locking, rate limiting, FakeSender, OpenClaw, inbound webhooks, WhatsApp,
-and ActiveCampaign belong to later milestones. No production messaging path
-exists yet.
+OpenClaw, inbound webhooks, WhatsApp, and ActiveCampaign belong to later
+milestones. No production messaging path exists yet.
