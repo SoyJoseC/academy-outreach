@@ -19,7 +19,7 @@ will only be added after the safety-focused local workflow is stable.
 - a worker command using `FakeSender` by default
 - deterministic opt-out detection and audit history
 - validated `send`, `human_review`, and `skip` admissions-agent decisions
-- an OpenClaw `/v1/responses` client using a required structured tool call
+- an OpenClaw `/v1/responses` client using a strictly validated JSON decision
 - campaign-specific human escalation visible in Django Admin
 - an OpenClaw admissions Skill and placeholder-only academy knowledge base
 - browser-based CSV import from each campaign in Django Admin
@@ -105,9 +105,11 @@ OPENCLAW_AGENT_ID=academy-admissions
 OPENCLAW_MODEL=openclaw/academy-admissions
 ```
 
-The client calls `POST /v1/responses` and requires exactly one validated
-`admissions_decision` function call. Malformed, incomplete, or failed responses
-mark the message as failed and never reach the sender. Keep the Gateway on
+The client calls `POST /v1/responses` and requires exactly one raw JSON object
+matching the admissions decision contract. This is compatible with OpenClaw's
+Codex runtime, which does not expose arbitrary request-scoped client tools as
+native dynamic tools. Malformed, incomplete, or failed responses mark the
+message as failed and never reach the sender. Keep the Gateway on
 loopback, a tailnet, or another private ingress: its HTTP bearer credential has
 operator-level authority.
 
